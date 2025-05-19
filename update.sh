@@ -23,7 +23,7 @@ else
 fi
 
 # Update pip 
-echo "Updating pip"
+echo "Updating pipx"
 if command -v pipx > /dev/null; then
     sudo -u $SUDO_USER pipx install --force pip
     sudo -u $SUDO_USER pipx ensurepath
@@ -39,6 +39,14 @@ else
     echo "Flatpak is not installed. Skipping Flatpak updates."
 fi
 
+# Update Snap packages
+echo "Updating Snap"
+if command -v snap > /dev/null; then
+    /usr/bin/snap refresh || true
+else
+    echo "Snap is not installed. Skipping Snap updates."
+fi
+
 # Update npm
 echo "Updating npm"
 if command -v npm > /dev/null; then
@@ -49,6 +57,8 @@ fi
 
 
 wait
+
+source ~/.zshrc
 
 # Update HyDE 
 echo "Updating HyDE repo"

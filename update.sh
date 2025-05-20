@@ -14,7 +14,7 @@ main() {
     update_mgr "pipx packages" sudo -u "$SUDO_USER" pipx upgrade-all
     update_mgr "Flatpak" flatpak update -y
     update_mgr "Snap" snap refresh
-    update_mgr "npm globals" npm update -g --unsafe-perm
+    update_mgr "npm globals" npm update -g
 
     log "Updating HyDE repo..."
     if [[ -d "$HOME/HyDE" ]]; then

@@ -1,79 +1,36 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
+trap 'log "Unexpected error"; exit 1' ERR
 
-# Exit if a command fails
-set -e
+log() { printf '%s %s\n' "$(date +'%Y-%m-%d %H:%M:%S')" "$*"; }
+have() { command -v "$1" &>/dev/null; }
+update_mgr() { local name=$1; shift; if have "$1"; then log "Updating $name..."; "$@" || log "⚠️  $name update failed"; else log "ℹ️  $name not found; skipping."; fi; }
 
-# Make sure script is run as root
-if [[ $EUID -ne 0 ]]; then
-   echo "This script must be run as root"
-   exit 1
-fi
+main() {
+    (( EUID == 0 )) || { log "Must run as root"; exit 1; }
 
+    update_mgr "pacman" pacman -Syu --noconfirm
+    update_mgr "yay (AUR)" sudo -u "$SUDO_USER" yay -Syu --noconfirm
+    update_mgr "pipx packages" sudo -u "$SUDO_USER" pipx upgrade-all
+    update_mgr "Flatpak" flatpak update -y
+    update_mgr "Snap" snap refresh
+    update_mgr "npm globals" npm update -g --unsafe-perm
 
-# Update pacman
-echo "Updating pacman packages..."
-sudo pacman -Syu --noconfirm
+    log "Updating HyDE repo..."
+    if [[ -d "$HOME/HyDE" ]]; then
+        git -C "$HOME/HyDE" pull
+    else
+        git clone --depth=1 https://github.com/HyDE-Project/HyDE "$HOME/HyDE"
+    fi
 
-# Update yay
-echo "Updating yay..."
-if command -v yay > /dev/null; then
-    sudo -u $SUDO_USER yay --noconfirm
-else
-    echo "yay is not installed. Skipping AUR updates."
-fi
+    if [[ -x "$HOME/HyDE/Scripts/install.sh" ]]; then
+        log "Running HyDE installer (-r)..."
+        bash "$HOME/HyDE/Scripts/install.sh" -r
+    else
+        log "⚠️  HyDE installer not found; skipping."
+    fi
 
-# Update pip 
-echo "Updating pipx"
-if command -v pipx > /dev/null; then
-    sudo -u $SUDO_USER pipx install --force pip
-    sudo -u $SUDO_USER pipx ensurepath
-else
-    echo "pipx is not installed. Skipping pip update."
-fi
+    log "🎉 All updates completed."
+}
 
-# Update Flatpak packages
-echo "Updating Flatpak"
-if command -v flatpak > /dev/null; then
-    /usr/bin/flatpak update -y || true
-else
-    echo "Flatpak is not installed. Skipping Flatpak updates."
-fi
-
-# Update Snap packages
-echo "Updating Snap"
-if command -v snap > /dev/null; then
-    /usr/bin/snap refresh || true
-else
-    echo "Snap is not installed. Skipping Snap updates."
-fi
-
-# Update npm
-echo "Updating npm"
-if command -v npm > /dev/null; then
-    npm update -g --unsafe-perm
-else
-    echo "npm is not installed. Skipping npm updates."
-fi
-
-
-wait
-
-source ~/.zshrc
-
-# Update HyDE 
-echo "Updating HyDE repo"
-if [ -d "$HOME/HyDE" ]; then
-    git -C "$HOME/HyDE" pull
-else
-    git clone --depth 1 https://github.com/HyDE-Project/HyDE ~/HyDE
-fi
-
-# Run HyDE install script with -restore
-if [ -f "$HOME/HyDE/Scripts/install.sh" ]; then
-    echo "Updating HyDE"
-    /bin/bash "$HOME/HyDE/Scripts/install.sh" -r
-else
-    echo "HyDE installation script not found! Skipping..."
-fi
-
-echo "All updates completed successfully!"
+main "$@"
